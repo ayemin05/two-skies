@@ -1,6 +1,6 @@
 # Two Skies
 
-A 3D co-op game for two. One plays the Sun, the other the Moon. Walk, jump, press buttons and hold the way open for each other.
+A 3D co-op game for two. One plays the Sun, the other the Moon. Walk, jump, punch, dance and hold the way open for each other across five levels.
 
 Play: https://ayemin05.github.io/two-skies/
 
