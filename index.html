@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12162f">
+<title>Two Skies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;700&family=Noto+Sans+Myanmar:wght@400;700&display=swap">
+<style>
+html,body{margin:0;-webkit-text-size-adjust:100%}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+/* Layout: lobby is a single column; the game is a tall 3D stage with touch controls laid over it (joystick left, jump right). Twilight look, single dark theme on purpose. */
+:root{
+  --bg:#12162f; --panel:#1c2247; --ink:#f3eedc; --soft:#a9a6c4; --line:#2e3667;
+  --sun:#f6b74e; --sun-glow:#ffe08a; --moon:#9fb1ff;
+  --good:#5fd39a; --warn:#ff8a7a;
+  --f-display:"Bricolage Grotesque","Noto Sans Myanmar","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"DM Sans","Noto Sans Myanmar",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body.my{line-height:1.8}
+.wrap{max-width:860px;margin:0 auto;padding-block:14px 30px;display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{font-family:var(--f-display);margin:0;line-height:1.15;text-wrap:balance}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;align-self:flex-start}
+.lang button{background:none;border:0;color:var(--soft);padding:6px 14px;font-size:14px}
+.lang button[aria-pressed="true"]{background:var(--panel);color:var(--ink)}
+.hero h1{font-size:clamp(46px,13vw,84px);font-weight:800;letter-spacing:-.02em}
+.hero h1 .s{color:var(--sun)} .hero h1 .m{color:var(--moon)}
+.hero{display:flex;flex-direction:column;gap:8px}
+.hero p{color:var(--soft);max-width:54ch}
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.role{border:2px solid transparent;border-radius:18px;padding:18px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.role.sun{background:linear-gradient(160deg,#ffcf72,#e8781f);color:#3a1d04}
+.role.moon{background:linear-gradient(160deg,#36408c,#11163a);color:#e7e9ff}
+.role[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 4px #ffffff22}
+.role h3{font-size:26px}
+.role span{font-size:14px;opacity:.85}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:14px;color:var(--soft)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row input{flex:1;min-width:0;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:var(--panel);color:var(--ink);font-size:18px;letter-spacing:.05em}
+.primary{background:var(--sun);color:#2a1503;border:0;border-radius:12px;padding:12px 20px;font-weight:700}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.ghost{background:none;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:14px}
+.card{background:var(--panel);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.card ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;color:var(--soft)}
+.card b{color:var(--ink)}
+.err{color:var(--warn);font-size:14px;min-height:20px}
+@media (max-width:420px){.pick{grid-template-columns:1fr}}
+
+/* Game */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--soft);min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--soft);flex:none}
+.dot.on{background:var(--good);box-shadow:0 0 8px var(--good)}
+.stage{position:relative;width:100%;height:min(76vh,640px);min-height:340px;border-radius:18px;overflow:hidden;background:#0b0e22;box-shadow:0 20px 50px #0008;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage canvas{display:block;width:100%;height:100%}
+.hint{position:absolute;left:12px;right:12px;top:12px;background:#0b0e22d9;border:1px solid #ffffff22;border-radius:14px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;font-size:15px;pointer-events:none;transition:opacity .25s;max-width:520px;margin:0 auto}
+.hint i{font-style:normal;flex:none;width:26px;height:26px;border-radius:50%;background:var(--sun);color:#2a1503;display:grid;place-items:center;font-weight:800}
+.hint.off{opacity:0}
+.toast{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);background:#000b;padding:10px 18px;border-radius:12px;font-weight:700;pointer-events:none}
+.banner{position:absolute;inset:0;display:grid;place-items:center;background:#0b0e2299;font-family:var(--f-display);font-weight:800;font-size:clamp(28px,7vw,48px);color:var(--sun-glow);text-align:center;padding:12px;pointer-events:none}
+.joy{position:absolute;left:0;bottom:0;width:55%;height:55%}
+.joybase{position:absolute;width:120px;height:120px;border-radius:50%;background:#ffffff14;border:2px solid #ffffff33;transform:translate(-50%,-50%);pointer-events:none}
+.joyknob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:#ffffffcc;box-shadow:0 2px 10px #0006}
+.jump{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:88px;height:88px;border-radius:50%;border:0;background:var(--sun);color:#2a1503;font-weight:800;font-size:16px;box-shadow:0 6px 0 #b8701d,0 10px 20px #0007}
+body.moonrole .jump{background:var(--moon);color:#141a3c;box-shadow:0 6px 0 #5b6cd0,0 10px 20px #0007}
+.jump:active{transform:translateY(4px);box-shadow:0 2px 0 #b8701d}
+.swapbtn{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:124px;border-radius:999px;border:0;background:#000a;color:var(--ink);padding:8px 12px;font-size:13px}
+.keys{font-size:13px;color:var(--soft)}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--soft)}
+.end{display:flex;flex-direction:column;gap:14px}
+.end h2{font-size:clamp(40px,11vw,70px);font-weight:800}
+.eclipse{height:130px;border-radius:20px;background:linear-gradient(90deg,#ffcf72 0 50%,#11163a 50%);position:relative}
+.eclipse::after{content:"";position:absolute;left:50%;top:50%;width:76px;height:76px;transform:translate(-50%,-50%);border-radius:50%;background:linear-gradient(90deg,#fff3c4 50%,#e2e8ff 50%);box-shadow:0 0 34px 8px #ffe08a99}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+/* ================= text ================= */
+const T={
+ en:{tag:"3D co-op adventure for two",intro:"You are the Sun, they are the Moon. Walk, jump, press buttons and hold the way open for each other until you both reach the light.",
+  sun:"Sun",moon:"Moon",sunSub:"Stands on gold stones",moonSub:"Stands on blue stones",code:"Pair code. Both of you type the same one.",
+  join:"Join together",joining:"Joining…",solo:"Practice alone",how:"How to start",
+  h1:"Both open the game link in your phone browser.",h2:"One picks <b>Sun</b>, the other picks <b>Moon</b>.",h3:"Type the same pair code and tap <b>Join together</b>.",h4:"Left side of the screen: drag to walk. Right button: jump.",
+  noCode:"Type a pair code with letters or numbers.",noConn:"Couldn't connect. Check your internet and try again. You can still practice alone.",
+  jump:"JUMP",back:"Back to checkpoint",leave:"Leave",waiting:o=>`Waiting for ${o}…`,here:o=>`${o} is here`,you:r=>`You are ${r}`,practice:"Practice: you can switch characters",
+  switchTo:r=>`Switch to ${r}`,fell:"Oops! Back to the last checkpoint.",keys:"Keyboard: WASD or arrows to walk, Space to jump.",
+  win:"Two skies, one sky.",winSub:m=>`You made it home together${m?` in about ${m} min`:""}.`,again:"Play again",lobby:"Back to start",door:"The Star Door is open!",home:"Both home!",
+  noGL:"Your browser couldn't start 3D graphics. Try another browser or update this one.",
+  s1:"Drag on the left side to walk. Tap JUMP to hop over the gaps.",
+  s2:"The gate is locked. One of you stands on the glowing button to hold it open. The other walks through.",
+  s3:"Now step on the button on this side so your partner can follow you.",
+  s4:"Too far to jump! Stand on the button to raise the bridge for your partner.",
+  s5:"Your partner crossed? Step on this button so the bridge comes back for you.",
+  s6:"Gold stones only hold the Sun. Blue stones only hold the Moon. Each of you take your own path.",
+  s7:"Stand on both star buttons at the same time to open the Star Door.",
+  s8:"Walk into the light together!"},
+ my:{tag:"နှစ်ယောက်အတူ ကစားရတဲ့ 3D စွန့်စားခန်း",intro:"မင်းက နေ၊ သူက လ။ လမ်းလျှောက်၊ ခုန်၊ ခလုတ်တွေ နင်းပြီး တစ်ယောက်ကို တစ်ယောက် လမ်းဖွင့်ပေးကာ အလင်းဆီ အတူတူ ရောက်အောင် သွားပါ။",
+  sun:"နေ",moon:"လ",sunSub:"ရွှေရောင်ကျောက်တုံးပေါ် ရပ်နိုင်",moonSub:"အပြာရောင်ကျောက်တုံးပေါ် ရပ်နိုင်",code:"တွဲကုဒ် — နှစ်ယောက်လုံး တူတူ ရိုက်ထည့်ပါ။",
+  join:"အတူတူ ဝင်မယ်",joining:"ဝင်နေသည်…",solo:"တစ်ယောက်တည်း လေ့ကျင့်မယ်",how:"စတင်နည်း",
+  h1:"နှစ်ယောက်လုံး ဖုန်းဘရောက်ဇာမှာ ဂိမ်းလင့်ခ်ကို ဖွင့်ပါ။",h2:"တစ်ယောက်က <b>နေ</b>၊ ကျန်တစ်ယောက်က <b>လ</b> ကို ရွေးပါ။",h3:"တွဲကုဒ် တူတူ ရိုက်ပြီး <b>အတူတူ ဝင်မယ်</b> ကို နှိပ်ပါ။",h4:"စခရင် ဘယ်ဘက်ကို ဆွဲပြီး လမ်းလျှောက်ပါ။ ညာဘက်ခလုတ်က ခုန်ဖို့ပါ။",
+  noCode:"တွဲကုဒ်ကို စာလုံး (သို့) နံပါတ်နဲ့ ရိုက်ထည့်ပါ။",noConn:"ချိတ်ဆက်လို့ မရပါ။ အင်တာနက်ကို စစ်ပြီး ပြန်ကြိုးစားပါ။ တစ်ယောက်တည်း လေ့ကျင့်လို့တော့ ရပါသေးတယ်။",
+  jump:"ခုန်",back:"မှတ်တိုင်ကို ပြန်သွား",leave:"ထွက်မယ်",waiting:o=>`${o} ကို စောင့်နေသည်…`,here:o=>`${o} ရောက်ပြီ`,you:r=>`မင်းက ${r}`,practice:"လေ့ကျင့်ခန်း — ဇာတ်ကောင် ပြောင်းလို့ရတယ်",
+  switchTo:r=>`${r} ကို ပြောင်းမယ်`,fell:"အိုး! နောက်ဆုံးမှတ်တိုင်ကို ပြန်ရောက်သွားပြီ။",keys:"ကီးဘုတ် — WASD (သို့) မြှားခလုတ်နဲ့ လျှောက်၊ Space နဲ့ ခုန်။",
+  win:"ကောင်းကင်နှစ်ခု၊ ကောင်းကင်တစ်ခု။",winSub:m=>`အတူတူ အိမ်ပြန်ရောက်သွားပြီ${m?` (မိနစ် ${m} ခန့်)`:""}။`,again:"ထပ်ကစားမယ်",lobby:"အစကို ပြန်သွား",door:"ကြယ်တံခါး ပွင့်သွားပြီ!",home:"နှစ်ယောက်လုံး ရောက်ပြီ!",
+  noGL:"ဒီဘရောက်ဇာမှာ 3D ဂရပ်ဖစ် မဖွင့်နိုင်ပါ။ တခြားဘရောက်ဇာနဲ့ စမ်းကြည့်ပါ။",
+  s1:"ဘယ်ဘက်ကို ဆွဲပြီး လမ်းလျှောက်ပါ။ ကွက်လပ်တွေကို ကျော်ဖို့ ခုန် ကို နှိပ်ပါ။",
+  s2:"တံခါး ပိတ်ထားတယ်။ တစ်ယောက်က တောက်ပနေတဲ့ ခလုတ်ပေါ်မှာ ရပ်ပြီး တံခါးကို ဖွင့်ထားပေးပါ။ ကျန်တစ်ယောက်က ဖြတ်သွားပါ။",
+  s3:"အခု ဒီဘက်က ခလုတ်ကို နင်းပြီး အဖော်ကို လိုက်လာခွင့်ပေးပါ။",
+  s4:"ခုန်ဖို့ ဝေးလွန်းတယ်! ခလုတ်ပေါ် ရပ်ပြီး အဖော်အတွက် တံတားကို ဖော်ပေးပါ။",
+  s5:"အဖော် ကူးလာပြီလား? ဒီခလုတ်ကို နင်းပြီး မင်းအတွက် တံတားကို ပြန်ဖော်ပါ။",
+  s6:"ရွှေရောင်ကျောက်တုံးက နေကိုပဲ ထိန်းထားနိုင်တယ်။ အပြာရောင်ကျောက်တုံးက လကိုပဲ ထိန်းထားနိုင်တယ်။ ကိုယ့်လမ်းကိုယ် သွားပါ။",
+  s7:"ကြယ်ခလုတ် နှစ်ခုလုံးပေါ်မှာ တစ်ပြိုင်နက် ရပ်ပြီး ကြယ်တံခါးကို ဖွင့်ပါ။",
+  s8:"အလင်းထဲကို အတူတူ လျှောက်သွားပါ။"}
+};
+let LANG="en";try{LANG=localStorage.getItem("ts.lang")||"en"}catch(e){}
+const t=k=>T[LANG][k];
+function setLang(l){LANG=l;try{localStorage.setItem("ts.lang",l)}catch(e){}document.body.classList.toggle("my",l==="my")}
+setLang(LANG);
+const roleName=r=>r==="sun"?"☀ "+t("sun"):"☾ "+t("moon");
+
+/* ================= world data ================= */
+// box: [x,y,z,w,h,d,kind]  kind: n normal, g gold(sun only), b blue(moon only), wall
+const WORLD=[
+ [0,-0.5,0,8,1,8,"n"],
+ [0,-0.5,-6.5,5,1,3,"n"],
+ [0.5,-0.3,-10.5,3,1,2.5,"n"],
+ [0,-0.5,-18,10,1,8,"n"],          // P2  z -14..-22
+ [-3.4,1.5,-22,3.8,3,0.6,"wall"],[3.4,1.5,-22,3.8,3,0.6,"wall"],
+ [0,-0.5,-26,10,1,8,"n"],          // P3  z -22..-30
+ [0,-0.5,-42,10,1,8,"n"],          // P4  z -38..-46
+ // split path
+ [-2.5,-0.2,-48.2,1.8,0.6,1.8,"g"],[-2.2,0.1,-51.4,1.8,0.6,1.8,"g"],[-2.8,0.4,-54.6,1.8,0.6,1.8,"g"],[-2.4,0.1,-57.8,1.8,0.6,1.8,"g"],
+ [2.5,-0.2,-48.2,1.8,0.6,1.8,"b"],[2.8,0.1,-51.4,1.8,0.6,1.8,"b"],[2.2,0.4,-54.6,1.8,0.6,1.8,"b"],[2.6,0.1,-57.8,1.8,0.6,1.8,"b"],
+ [0,-0.5,-65,12,1,8,"n"],          // P5  z -61..-69
+ [-3.9,1.5,-69,4.2,3,0.6,"wall"],[3.9,1.5,-69,4.2,3,0.6,"wall"],
+ [0,-0.5,-74,8,1,10,"n"]           // goal z -69..-79
+];
+const GATE1={x:0,y:1.5,z:-22,w:3,h:3,d:0.6};
+const STARDOOR={x:0,y:1.5,z:-69,w:3.6,h:3,d:0.6};
+const BRIDGE={x:0,y:-0.5,z:-34,w:3,h:1,d:8};
+const PLATES=[
+ {id:"a1",x:3.5,z:-19,top:0,col:0x4fd6c4},{id:"a2",x:-3.5,z:-25,top:0,col:0x4fd6c4},
+ {id:"b1",x:3.5,z:-28.3,top:0,col:0xff7eb6},{id:"b2",x:-3.5,z:-40,top:0,col:0xff7eb6},
+ {id:"s1",x:-4.5,z:-65,top:0,col:0xfff2b0,star:1},{id:"s2",x:4.5,z:-65,top:0,col:0xfff2b0,star:1}
+];
+const SIGNS=[
+ {k:"s1",x:2.6,z:-1.8,r:5},{k:"s2",x:-3,z:-16,r:4.5},{k:"s3",x:2.6,z:-24,r:3.6},
+ {k:"s4",x:-2,z:-28.6,r:3.4},{k:"s5",x:2,z:-40.2,r:3.6},{k:"s6",x:0,z:-44.5,r:3.8},
+ {k:"s7",x:0,z:-62.5,r:4},{k:"s8",x:-2.4,z:-71.5,r:3.5}
+];
+const CHECKPOINTS=[{z:1},{z:-16},{z:-27},{z:-41},{z:-64}];
+const GOAL={x:0,z:-75,r:2};
+const SPAWN_DX={sun:-1.1,moon:1.1};
+
+/* ================= state ================= */
+let S={mode:null,role:null,code:"",won:false,start:null};
+let partner=null;
+let latched=false;
+const app=document.getElementById("app");
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+function makePlayer(role){const cp=0;return{role,pos:new THREE.Vector3(SPAWN_DX[role],0.05,CHECKPOINTS[cp].z),vel:new THREE.Vector3(),grounded:false,cp,ry:Math.PI,moving:0,model:null,walkT:0}}
+let ME=null,OTHER=null; // OTHER: local partner in practice, or network ghost
+let activeRole="sun";
+function controlled(){return S.mode==="local"?(activeRole==="sun"?PL.sun:PL.moon):ME}
+const PL={sun:null,moon:null};
+
+/* ================= rules ================= */
+function playerPositions(){const out=[];
+ if(S.mode==="local"){out.push(PL.sun.pos,PL.moon.pos)}
+ else{out.push(ME.pos);if(partner&&OTHER&&OTHER.seen)out.push(OTHER.pos)}
+ return out}
+function pressed(pl,list){return list.some(p=>Math.hypot(p.x-pl.x,p.z-pl.z)<0.95&&Math.abs(p.y-pl.top)<0.45)}
+function plateState(){const pos=playerPositions(),st={};PLATES.forEach(p=>st[p.id]=pressed(p,pos));return st}
+let PS={};
+function gateOpen(){return PS.a1||PS.a2}
+function bridgeOn(){return PS.b1||PS.b2}
+function solids(role){const out=[];
+ for(const b of WORLD){const[x,y,z,w,h,d,k]=b;if(k==="g"&&role!=="sun")continue;if(k==="b"&&role!=="moon")continue;out.push({x,y,z,w,h,d})}
+ if(!gateOpen())out.push(GATE1);
+ if(!latched)out.push(STARDOOR);
+ if(bridgeOn())out.push(BRIDGE);
+ return out}
+const PW=0.3,PH=1.55;
+function hit(p,boxes){for(const b of boxes){
+ if(Math.abs(p.x-b.x)<b.w/2+PW&&Math.abs(p.z-b.z)<b.d/2+PW&&p.y<b.y+b.h/2&&p.y+PH>b.y-b.h/2)return b}return null}
+
+function stepPlayer(P,ix,iz,jump,dt){
+ const boxes=solids(P.role);
+ const speed=5.2;const tx=ix*speed,tz=iz*speed;
+ const k=Math.min(1,dt*(P.grounded?14:5));P.vel.x+=(tx-P.vel.x)*k;P.vel.z+=(tz-P.vel.z)*k;
+ if(jump&&P.grounded){P.vel.y=8.2;P.grounded=false}
+ P.vel.y-=24*dt;if(P.vel.y<-20)P.vel.y=-20;
+ // x
+ P.pos.x+=P.vel.x*dt;if(hit(P.pos,boxes)){P.pos.x-=P.vel.x*dt;P.vel.x=0}
+ P.pos.z+=P.vel.z*dt;if(hit(P.pos,boxes)){P.pos.z-=P.vel.z*dt;P.vel.z=0}
+ P.grounded=false;
+ P.pos.y+=P.vel.y*dt;const b=hit(P.pos,boxes);
+ if(b){if(P.vel.y<=0){P.pos.y=b.y+b.h/2;P.grounded=true}else{P.pos.y=b.y-b.h/2-PH-0.001}P.vel.y=0}
+ // step-up for tiny ledges
+ const sp=Math.hypot(P.vel.x,P.vel.z);P.moving=sp>0.6?1:0;
+ if(sp>0.3)P.ry=Math.atan2(P.vel.x,P.vel.z);
+ // checkpoints
+ if(P.grounded)CHECKPOINTS.forEach((c,i)=>{if(i>P.cp&&P.pos.z<c.z+1.2)P.cp=i});
+ if(P.pos.y<-9)respawn(P,true)}
+function respawn(P,fell){const c=CHECKPOINTS[P.cp];P.pos.set(SPAWN_DX[P.role],1,c.z);P.vel.set(0,0,0);if(fell&&(P===controlled()))toast(t("fell"))}
+
+/* ================= 3D ================= */
+const G={r:null,scene:null,cam:null,clock:null,plates:{},gate:null,door:null,bridge:null,beam:null,sunLight:null,camPos:null};
+const mat=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8,metalness:.03},o));
+function initGL(){
+ if(G.r)return true;
+ if(!window.THREE)return false;
+ try{G.r=new THREE.WebGLRenderer({antialias:true})}catch(e){return false}
+ G.r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));G.r.shadowMap.enabled=true;G.r.shadowMap.type=THREE.PCFSoftShadowMap;
+ const sc=G.scene=new THREE.Scene();sc.background=new THREE.Color(0x1a2150);sc.fog=new THREE.Fog(0x1a2150,22,60);
+ G.cam=new THREE.PerspectiveCamera(55,1,0.1,200);
+ sc.add(new THREE.HemisphereLight(0xb8c4ff,0x40301c,0.8));
+ const d=G.sunLight=new THREE.DirectionalLight(0xfff0d8,0.9);d.position.set(-6,14,6);d.castShadow=true;d.shadow.mapSize.set(1024,1024);
+ Object.assign(d.shadow.camera,{left:-14,right:14,top:14,bottom:-14,near:1,far:50});sc.add(d);sc.add(d.target);
+ // stars + big moon and sun in sky
+ const sg=new THREE.BufferGeometry(),pts=[];for(let i=0;i<900;i++){const a=Math.random()*Math.PI*2,h=6+Math.random()*40,rr=60+Math.random()*30;pts.push(Math.cos(a)*rr,h,Math.sin(a)*rr-40)}
+ sg.setAttribute("position",new THREE.Float32BufferAttribute(pts,3));sc.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xe6ebff,size:.35,fog:false})));
+ const skySun=new THREE.Mesh(new THREE.SphereGeometry(5,32,24),new THREE.MeshBasicMaterial({color:0xffc35a,fog:false}));skySun.position.set(-38,22,-95);sc.add(skySun);
+ const skyMoon=new THREE.Mesh(new THREE.SphereGeometry(4,32,24),new THREE.MeshBasicMaterial({color:0xdfe6ff,fog:false}));skyMoon.position.set(36,26,-95);sc.add(skyMoon);
+ buildWorld();
+ PL.sun.model=makeHuman("sun");PL.moon.model=makeHuman("moon");sc.add(PL.sun.model.root);sc.add(PL.moon.model.root);
+ G.clock=new THREE.Clock();
+ const loop=()=>{requestAnimationFrame(loop);frame()};loop();
+ return true}
+
+function buildWorld(){const sc=G.scene,box=new THREE.BoxGeometry(1,1,1);
+ const grassTop=mat(0x5d6fd6),side=mat(0x2a2f66),gold=mat(0xf2a93b,{emissive:0xb25f10,emissiveIntensity:.5}),blue=mat(0x6f82f2,{emissive:0x2c3aa8,emissiveIntensity:.6}),wall=mat(0x3a3f7c);
+ for(const[x,y,z,w,h,d,k] of WORLD){
+  let m;if(k==="g")m=gold;else if(k==="b")m=blue;else if(k==="wall")m=wall;else m=[side,side,grassTop,side,side,side];
+  const mesh=new THREE.Mesh(box,m);mesh.scale.set(w,h,d);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;sc.add(mesh);
+  if(k==="n"){const under=new THREE.Mesh(new THREE.ConeGeometry(Math.min(w,d)*0.45,3,6),side);under.position.set(x,y-h/2-1.5,z);under.rotation.y=.4;sc.add(under)}
+  if(k==="g"||k==="b"){const glow=new THREE.PointLight(k==="g"?0xffb040:0x7a8cff,.6,3);glow.position.set(x,y+.6,z);sc.add(glow)}}
+ // gate 1
+ G.gate=makeGate(0x4fd6c4,GATE1);sc.add(G.gate);
+ G.door=makeGate(0xfff2b0,STARDOOR,true);sc.add(G.door);
+ // bridge planks
+ const br=new THREE.Group();for(let i=0;i<8;i++){const pl=new THREE.Mesh(box,mat(0xff7eb6,{emissive:0xc03d7a,emissiveIntensity:.5}));pl.scale.set(3,0.25,0.9);pl.position.set(0,0,-3.5+i);pl.castShadow=true;pl.receiveShadow=true;br.add(pl)}
+ br.position.set(BRIDGE.x,-0.12,BRIDGE.z);G.bridge=br;G.bridge.userData.y=-6;sc.add(br);
+ // plates
+ for(const p of PLATES){const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(.85,.9,.06,32),mat(0x222744));g.add(ring);
+  const btn=new THREE.Mesh(new THREE.CylinderGeometry(.62,.66,.18,32),mat(p.col,{emissive:p.col,emissiveIntensity:.35}));btn.position.y=.1;g.add(btn);
+  if(p.star){const st=new THREE.Mesh(new THREE.OctahedronGeometry(.3),mat(0xfff2b0,{emissive:0xffd060,emissiveIntensity:1}));st.position.y=1.4;g.add(st);g.userData.star=st}
+  g.position.set(p.x,p.top,p.z);g.userData.btn=btn;sc.add(g);G.plates[p.id]=g}
+ // signs
+ for(const s of SIGNS){const g=new THREE.Group();
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.3,8),mat(0x8a6a36));post.position.y=.65;g.add(post);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(.9,.6,.08),mat(0xf3e2b8));board.position.y=1.4;g.add(board);
+  const mark=new THREE.Mesh(new THREE.SphereGeometry(.12,12,10),mat(0xe0761a,{emissive:0xe0761a,emissiveIntensity:.6}));mark.position.set(0,1.38,.06);g.add(mark);
+    g.position.set(s.x,0,s.z);g.rotation.y=0;sc.add(g)}
+ // goal beam
+ const beam=new THREE.Mesh(new THREE.CylinderGeometry(GOAL.r,GOAL.r,14,40,1,true),new THREE.MeshBasicMaterial({color:0xfff0c0,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false}));
+ beam.position.set(GOAL.x,7,GOAL.z);sc.add(beam);G.beam=beam;
+ const gl=new THREE.PointLight(0xffe7a8,1.6,10);gl.position.set(GOAL.x,2,GOAL.z);sc.add(gl);
+ // floating clouds
+ for(let i=0;i<14;i++){const c=new THREE.Mesh(new THREE.SphereGeometry(1+Math.random()*1.5,12,10),mat(0x3b4590,{transparent:true,opacity:.7}));c.scale.y=.4;c.position.set((Math.random()<.5?-1:1)*(10+Math.random()*12),-4-Math.random()*4,-Math.random()*80);sc.add(c)}}
+function makeGate(col,b,star){const g=new THREE.Group();const n=star?7:6;
+ for(let i=0;i<n;i++){const bar=new THREE.Mesh(new THREE.BoxGeometry(.14,b.h,.14),mat(col,{emissive:col,emissiveIntensity:.6}));bar.position.set(-b.w/2+.2+i*(b.w-.4)/(n-1),0,0);bar.castShadow=true;g.add(bar)}
+ const top=new THREE.Mesh(new THREE.BoxGeometry(b.w,.18,.22),mat(col,{emissive:col,emissiveIntensity:.6}));top.position.y=b.h/2;g.add(top);
+ g.position.set(b.x,b.y,b.z);g.userData.y0=b.y;g.userData.cur=0;return g}
+
+function makeHuman(role){
+ const sun=role==="sun";
+ const C=sun?{shirt:0xf6a62e,pants:0x7a3e12,hair:0x3a1f0d,acc:0xffd34d,skin:0xc98e5e,shoe:0x3a1d04}
+            :{shirt:0x5a6ce0,pants:0x1f2650,hair:0x111428,acc:0xdfe6ff,skin:0xd9a477,shoe:0x10142e};
+ const root=new THREE.Group(),body=new THREE.Group();root.add(body);
+ const box=(w,h,d,c)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));m.castShadow=true;return m};
+ const limb=(w,h,c,y)=>{const piv=new THREE.Group();const m=box(w,h,w,c);m.position.y=-h/2;piv.add(m);piv.position.y=y;return {piv,m}};
+ // legs
+ const lL=limb(.2,.66,C.pants,.7),lR=limb(.2,.66,C.pants,.7);lL.piv.position.x=-.13;lR.piv.position.x=.13;body.add(lL.piv,lR.piv);
+ for(const l of[lL,lR]){const sh=box(.23,.1,.32,C.shoe);sh.position.set(0,-.66,.05);l.piv.add(sh)}
+ // torso
+ const torso=box(.52,.58,.3,C.shirt);torso.position.y=.99;body.add(torso);
+ const emb=new THREE.Mesh(sun?new THREE.CircleGeometry(.1,20):new THREE.RingGeometry(.05,.1,20,1,0,Math.PI*1.3),new THREE.MeshBasicMaterial({color:C.acc,side:THREE.DoubleSide}));emb.position.set(0,1.05,.152);body.add(emb);
+ // arms
+ const aL=limb(.16,.56,C.shirt,1.24),aR=limb(.16,.56,C.shirt,1.24);aL.piv.position.x=-.35;aR.piv.position.x=.35;body.add(aL.piv,aR.piv);
+ for(const a of[aL,aR]){const h=new THREE.Mesh(new THREE.SphereGeometry(.09,12,10),mat(C.skin));h.position.y=-.6;a.piv.add(h)}
+ // head
+ const head=new THREE.Group();head.position.y=1.5;body.add(head);
+ const skull=new THREE.Mesh(new THREE.SphereGeometry(.24,24,18),mat(C.skin));skull.castShadow=true;skull.position.y=.06;head.add(skull);
+ const hair=new THREE.Mesh(new THREE.SphereGeometry(.255,24,18,0,Math.PI*2,0,Math.PI*.55),mat(C.hair));hair.position.y=.08;hair.rotation.x=-.25;head.add(hair);
+ for(const x of[-.085,.085]){const e=new THREE.Mesh(new THREE.SphereGeometry(.035,10,8),mat(0x161616));e.position.set(x,.08,.22);head.add(e)}
+ const mouth=new THREE.Mesh(new THREE.TorusGeometry(.05,.012,6,12,Math.PI),mat(0x5a1e1e));mouth.position.set(0,-.02,.225);mouth.rotation.z=Math.PI;head.add(mouth);
+ if(sun){const crown=new THREE.Group();for(let i=0;i<9;i++){const a=i/9*Math.PI*2;const c=new THREE.Mesh(new THREE.ConeGeometry(.05,.17,6),mat(C.acc,{emissive:0xffa020,emissiveIntensity:.9}));c.position.set(Math.cos(a)*.2,.32,Math.sin(a)*.2);crown.add(c)}head.add(crown);head.userData.spin=crown}
+ else{const cr=new THREE.Mesh(new THREE.TorusGeometry(.12,.035,8,24,Math.PI*1.2),mat(C.acc,{emissive:0x9fb1ff,emissiveIntensity:.8}));cr.position.set(.14,.3,0);cr.rotation.set(0,Math.PI/2,2.4);head.add(cr)}
+ const light=new THREE.PointLight(sun?0xffb64a:0x9fb1ff,.9,4);light.position.y=1.6;root.add(light);
+ root.scale.setScalar(1.05);
+ return{root,body,lL:lL.piv,lR:lR.piv,aL:aL.piv,aR:aR.piv,head}}
+
+function animate(P,dt,T){const m=P.model;if(!m)return;
+ m.root.position.copy(P.pos);
+ let d=P.ry-m.root.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));m.root.rotation.y+=d*Math.min(1,dt*12);
+ const air=!P.grounded;
+ if(P.moving&&!air)P.walkT+=dt*11;
+ const sw=air?0:(P.moving?Math.sin(P.walkT)*.8:0);
+ const lerp=(o,v)=>o+(v-o)*Math.min(1,dt*14);
+ m.lL.rotation.x=lerp(m.lL.rotation.x,air?-.6:sw);m.lR.rotation.x=lerp(m.lR.rotation.x,air?.3:-sw);
+ m.aL.rotation.x=lerp(m.aL.rotation.x,air?-2.6:-sw*.9);m.aR.rotation.x=lerp(m.aR.rotation.x,air?-2.6:sw*.9);
+ m.aL.rotation.z=lerp(m.aL.rotation.z,air?-.3:0);m.aR.rotation.z=lerp(m.aR.rotation.z,air?.3:0);
+ m.body.position.y=(P.moving&&!air?Math.abs(Math.cos(P.walkT))*.06:Math.sin(T*2.4)*.015);
+ if(S.won)m.body.position.y=Math.abs(Math.sin(T*6))*.35;
+ if(m.head.userData.spin)m.head.userData.spin.rotation.y+=dt*1.2}
+
+/* ================= input ================= */
+const IN={x:0,z:0,jump:false,keys:{}};
+document.addEventListener("keydown",e=>{if(!S.mode||e.target.tagName==="INPUT")return;const k=e.key.toLowerCase();
+ if(["arrowup","arrowdown","arrowleft","arrowright"," ","w","a","s","d"].includes(k)){e.preventDefault();IN.keys[k]=true;if(k===" ")IN.jump=true}
+ if(k==="tab"&&S.mode==="local"){e.preventDefault();swapChar()}});
+document.addEventListener("keyup",e=>{IN.keys[e.key.toLowerCase()]=false});
+let joy=null;
+function bindTouch(stage){
+ const zone=stage.querySelector(".joy");
+ zone.addEventListener("pointerdown",e=>{e.preventDefault();zone.setPointerCapture(e.pointerId);const r=stage.getBoundingClientRect();
+  const base=document.createElement("div");base.className="joybase";base.innerHTML='<div class="joyknob"></div>';base.style.left=(e.clientX-r.left)+"px";base.style.top=(e.clientY-r.top)+"px";stage.appendChild(base);
+  joy={id:e.pointerId,ox:e.clientX,oy:e.clientY,base,knob:base.firstChild,x:0,y:0}});
+ zone.addEventListener("pointermove",e=>{if(!joy||e.pointerId!==joy.id)return;let dx=e.clientX-joy.ox,dy=e.clientY-joy.oy;const L=Math.hypot(dx,dy),max=50;if(L>max){dx*=max/L;dy*=max/L}
+  joy.x=dx/max;joy.y=dy/max;joy.knob.style.transform=`translate(${dx}px,${dy}px)`});
+ const end=e=>{if(!joy||e.pointerId!==joy.id)return;joy.base.remove();joy=null};
+ zone.addEventListener("pointerup",end);zone.addEventListener("pointercancel",end);
+ const jb=stage.querySelector(".jump");jb.addEventListener("pointerdown",e=>{e.preventDefault();IN.jump=true});}
+function readInput(){let x=0,z=0;const k=IN.keys;
+ if(k.a||k.arrowleft)x-=1;if(k.d||k.arrowright)x+=1;if(k.w||k.arrowup)z-=1;if(k.s||k.arrowdown)z+=1;
+ if(joy){x+=joy.x;z+=joy.y}
+ const L=Math.hypot(x,z);if(L>1){x/=L;z/=L}if(L<0.12){x=0;z=0}
+ const j=IN.jump;IN.jump=false;return{x,z,j}}
+
+/* ================= loop ================= */
+let lastSend=0,lastHint=null,winTimer=null;
+function frame(){
+ if(!document.getElementById("stage")||!G.r)return;
+ const dt=Math.min(.05,G.clock.getDelta()),T=G.clock.elapsedTime;
+ const inp=readInput();
+ PS=plateState();
+ const subs=Math.ceil(dt/0.016),h=dt/subs;
+ if(S.mode==="local"){const a=controlled(),b=a===PL.sun?PL.moon:PL.sun;for(let i=0;i<subs;i++){stepPlayer(a,inp.x,inp.z,i===0&&inp.j,h);stepPlayer(b,0,0,false,h)}}
+ else{for(let i=0;i<subs;i++)stepPlayer(ME,inp.x,inp.z,i===0&&inp.j,h);
+  if(OTHER&&OTHER.target){OTHER.pos.lerp(OTHER.target,1-Math.exp(-dt*12));let d=OTHER.tRy-OTHER.ry;d=Math.atan2(Math.sin(d),Math.cos(d));OTHER.ry+=d*Math.min(1,dt*12)}}
+ if(PS.s1&&PS.s2&&!latched){latched=true;toast(t("door"))}
+ // visuals
+ const gt=gateOpen()?-3.2:0;G.gate.position.y+=(GATE1.y+gt-G.gate.position.y)*Math.min(1,dt*8);
+ const dtg=latched?-3.2:0;G.door.position.y+=(STARDOOR.y+dtg-G.door.position.y)*Math.min(1,dt*4);
+ const by=bridgeOn()?-0.12:-6;G.bridge.position.y+=(by-G.bridge.position.y)*Math.min(1,dt*9);G.bridge.visible=G.bridge.position.y>-5.5;
+ for(const p of PLATES){const g=G.plates[p.id],on=PS[p.id];const bt=g.userData.btn;bt.position.y+=((on?.03:.1)-bt.position.y)*Math.min(1,dt*14);bt.material.emissiveIntensity+=((on?1.3:.35)-bt.material.emissiveIntensity)*Math.min(1,dt*10);
+  if(g.userData.star){g.userData.star.rotation.y+=dt*2;g.userData.star.position.y=1.4+Math.sin(T*2)*.1}}
+ G.beam.material.opacity=.14+Math.sin(T*2)*.05;
+ for(const P of [PL.sun,PL.moon]){if(!P)continue;const vis=S.mode==="local"||P===ME||(OTHER&&OTHER.seen&&partner);P.model.root.visible=!!vis;if(vis)animate(P,dt,T)}
+ // camera
+ const C=controlled();const tgt=new THREE.Vector3(C.pos.x*0.6,C.pos.y,C.pos.z);
+ const want=tgt.clone().add(new THREE.Vector3(0,4.6,7.2));
+ if(!G.camPos)G.camPos=want.clone();G.camPos.lerp(want,1-Math.exp(-dt*5));
+ G.cam.position.copy(G.camPos);G.cam.lookAt(tgt.x,tgt.y+1,tgt.z-2.5);
+ G.sunLight.position.set(C.pos.x-6,C.pos.y+14,C.pos.z+6);G.sunLight.target.position.set(C.pos.x,C.pos.y,C.pos.z);
+ // hints
+ let near=null,best=1e9;for(const s of SIGNS){const d=Math.hypot(C.pos.x-s.x,C.pos.z-s.z);if(d<s.r&&d<best){best=d;near=s}}
+ const hint=document.getElementById("hint");if(hint){if(near){if(lastHint!==near.k||hint.dataset.lang!==LANG){hint.querySelector("span").textContent=t(near.k);hint.dataset.lang=LANG;lastHint=near.k}hint.classList.remove("off")}else hint.classList.add("off")}
+ // win
+ const ps=S.mode==="local"?[PL.sun.pos,PL.moon.pos]:(OTHER&&OTHER.seen&&partner?[ME.pos,OTHER.pos]:[ME.pos]);
+ if(!S.won&&ps.length===2&&ps.every(p=>Math.hypot(p.x-GOAL.x,p.z-GOAL.z)<GOAL.r&&p.y>-1)){S.won=true;const ban=document.getElementById("ban");if(ban){ban.textContent=t("home");ban.hidden=false}winTimer=setTimeout(()=>{render()},2600)}
+ // network
+ if(S.mode==="online"&&ME&&performance.now()-lastSend>66){lastSend=performance.now();sendState()}
+ G.r.render(G.scene,G.cam)}
+
+function toast(msg){const st=document.getElementById("stage");if(!st)return;const d=document.createElement("div");d.className="toast";d.textContent=msg;st.appendChild(d);setTimeout(()=>d.remove(),1800)}
+function resize(){if(!G.r)return;const st=document.getElementById("stage");if(!st)return;const w=st.clientWidth,h=st.clientHeight;G.r.setSize(w,h,false);G.cam.aspect=w/h;G.cam.fov=w<h?66:55;G.cam.updateProjectionMatrix()}
+window.addEventListener("resize",resize);
+
+/* ================= network (peer-to-peer) ================= */
+let peer=null,conn=null,lastData=0;
+function connect(){
+ if(!window.Peer)return Promise.resolve(false);
+ const id="twoskies-"+S.code;
+ return new Promise(res=>{let done=false;const finish=v=>{if(!done){done=true;res(v)}};
+  const host=new Peer(id,{debug:0});
+  host.on("open",()=>{peer=host;host.on("connection",c=>{if(conn)conn.close();attach(c)});finish(true)});
+  host.on("error",e=>{
+   if(e.type==="unavailable-id"){host.destroy();const g=new Peer({debug:0});
+    g.on("open",()=>{peer=g;attach(g.connect(id));finish(true)});
+    g.on("error",()=>{if(!done)finish(false);else updateStatus()})}
+   else if(!done)finish(false)});
+  setTimeout(()=>finish(false),15000)})}
+function attach(c){conn=c;c.on("data",onData);c.on("open",updateStatus);c.on("close",()=>{if(conn===c){conn=null;partner=null;updateStatus()}});c.on("error",()=>{})}
+function onData(p){if(!p||typeof p.x!=="number"||p.role===S.role)return;
+ lastData=performance.now();const fresh=!partner;partner={presence:p};
+ if(OTHER){const v=new THREE.Vector3(p.x,p.y,p.z);
+  if(!OTHER.seen||OTHER.pos.distanceTo(v)>6)OTHER.pos.copy(v);
+  OTHER.target=v;OTHER.tRy=p.ry||0;OTHER.moving=p.mv?1:0;OTHER.grounded=!!p.gr;OTHER.seen=true}
+ if(fresh)updateStatus()}
+function sendState(){if(conn&&conn.open)try{conn.send({role:S.role,x:+ME.pos.x.toFixed(2),y:+ME.pos.y.toFixed(2),z:+ME.pos.z.toFixed(2),ry:+ME.ry.toFixed(2),mv:ME.moving,gr:ME.grounded?1:0,won:S.won?1:0})}catch(e){}}
+setInterval(()=>{if(partner&&performance.now()-lastData>5000){partner=null;updateStatus()}},1000);
+function disconnect(){try{if(conn)conn.close()}catch(e){}try{if(peer)peer.destroy()}catch(e){}conn=null;peer=null;partner=null}
+
+/* ================= views ================= */
+function render(){
+ document.body.classList.toggle("moonrole",S.role==="moon");
+ if(!S.mode)return lobby();
+ if(S.won)return end();
+ game()}
+
+function langToggle(){return `<div class="lang" role="group"><button data-l="en" aria-pressed="${LANG==="en"}">English</button><button data-l="my" aria-pressed="${LANG==="my"}">မြန်မာ</button></div>`}
+function bindLang(rerender){app.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{setLang(b.dataset.l);rerender()})}
+
+function lobby(){
+ const code=S.code||ls("ts.code")||("sky"+Math.floor(1000+Math.random()*9000));
+ app.innerHTML=`${langToggle()}<div class="hero"><p class="eyebrow">${t("tag")}</p>
+  <h1><span class="s">Two</span> <span class="m">Skies</span></h1><p>${t("intro")}</p></div>
+  <div class="pick">
+   <button class="role sun" data-r="sun" aria-pressed="false"><h3>☀ ${t("sun")}</h3><span>${t("sunSub")}</span></button>
+   <button class="role moon" data-r="moon" aria-pressed="false"><h3>☾ ${t("moon")}</h3><span>${t("moonSub")}</span></button></div>
+  <div class="field"><label for="code">${t("code")}</label>
+   <div class="row"><input id="code" value="${code}" maxlength="20" autocomplete="off"><button class="primary" id="go" disabled>${t("join")}</button></div>
+   <p class="err" id="err"></p></div>
+  <div class="row"><button class="ghost" id="solo">${t("solo")}</button></div>
+  <div class="card"><p class="eyebrow">${t("how")}</p><ol><li>${t("h1")}</li><li>${t("h2")}</li><li>${t("h3")}</li><li>${t("h4")}</li></ol></div>`;
+ bindLang(lobby);
+ let role=null;const go=document.getElementById("go");
+ app.querySelectorAll(".role").forEach(b=>b.onclick=()=>{role=b.dataset.r;app.querySelectorAll(".role").forEach(x=>x.setAttribute("aria-pressed",x===b));go.disabled=false});
+ go.onclick=async()=>{const v=document.getElementById("code").value.toLowerCase().replace(/[^a-z0-9]/g,"");const err=document.getElementById("err");
+  if(!v){err.textContent=t("noCode");return}
+  go.disabled=true;go.textContent=t("joining");S.code=v;ls("ts.code",v);S.role=role;S.mode="online";
+  newRun();
+  const ok=await connect();
+  if(!ok){S.mode=null;go.disabled=false;go.textContent=t("join");err.textContent=t("noConn");return}
+  render()};
+ document.getElementById("solo").onclick=()=>{S.mode="local";S.role="sun";activeRole="sun";newRun();render()};
+}
+function newRun(){
+ if(!window.THREE)return;
+ const keepSun=PL.sun&&PL.sun.model,keepMoon=PL.moon&&PL.moon.model;
+ PL.sun=makePlayer("sun");PL.moon=makePlayer("moon");PL.sun.model=keepSun||null;PL.moon.model=keepMoon||null;
+ ME=S.role==="moon"?PL.moon:PL.sun;OTHER=S.mode==="online"?(ME===PL.sun?PL.moon:PL.sun):null;if(OTHER)OTHER.seen=false;
+ latched=false;S.won=false;S.start=Date.now();G.camPos=null;clearTimeout(winTimer)}
+
+function game(){
+ app.innerHTML=`<div class="top"><div class="status" id="status"></div>
+   <div class="row">${langToggle()}<button class="ghost" id="back">${t("back")}</button><button class="ghost" id="quit">${t("leave")}</button></div></div>
+  <div class="stage" id="stage">
+   <div class="joy"></div>
+   <div class="hint off" id="hint"><i>!</i><span></span></div>
+   ${S.mode==="local"?`<button class="swapbtn" id="swap"></button>`:""}
+   <button class="jump" id="jumpbtn">${t("jump")}</button>
+   <div class="banner" id="ban" hidden></div></div>
+  <p class="keys">${t("keys")}</p>`;
+ bindLang(()=>{lastHint=null;game()});
+ const stage=document.getElementById("stage");
+ if(!initGL()){stage.insertAdjacentHTML("beforeend",`<div class="nogl">${t("noGL")}</div>`);return}
+ stage.prepend(G.r.domElement);resize();bindTouch(stage);
+ document.getElementById("back").onclick=()=>respawn(controlled(),false);
+ document.getElementById("quit").onclick=()=>{disconnect();S.mode=null;render()};
+ const sw=document.getElementById("swap");if(sw)sw.onclick=swapChar;
+ updateStatus()}
+function swapChar(){activeRole=activeRole==="sun"?"moon":"sun";G.camPos=null;updateStatus()}
+function updateStatus(){
+ const sw=document.getElementById("swap");if(sw)sw.textContent=t("switchTo")(roleName(activeRole==="sun"?"moon":"sun"));
+ const st=document.getElementById("status");if(!st)return;
+ if(S.mode==="local"){st.innerHTML=`<span class="dot on"></span><span>${t("practice")}</span>`;return}
+ const other=roleName(S.role==="sun"?"moon":"sun");
+ st.innerHTML=`<span class="dot ${partner?"on":""}"></span><span>${t("you")(roleName(S.role))} · ${partner?t("here")(other):t("waiting")(other)} <b>${partner?"":S.code}</b></span>`}
+
+function end(){
+ const mins=S.start?Math.max(1,Math.round((Date.now()-S.start)/60000)):null;
+ app.innerHTML=`${langToggle()}<div class="end"><h2>${t("win")}</h2><div class="eclipse"></div><p>${t("winSub")(mins)}</p>
+  <div class="row"><button class="primary" id="again">${t("again")}</button><button class="ghost" id="lobby">${t("lobby")}</button></div></div>`;
+ bindLang(end);
+ document.getElementById("again").onclick=()=>{newRun();render()};
+ document.getElementById("lobby").onclick=()=>{disconnect();S.mode=null;S.won=false;render()}}
+render();
+</script>
+
+</body>
+</html>
