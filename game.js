@@ -276,8 +276,10 @@ function iconTex(txt,bg,size=128,fg="#fff"){const cv=document.createElement("can
 function sprite(tex,s){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));sp.scale.setScalar(s);return sp}
 
 /* ---------- signs ---------- */
-function canRead(s){return !s.who||S.mode==="single"||s.who===S.role}
-function signText(s){return canRead(s)?t(s.k):t("onlyRead")(roleName(s.who))}
+function viewer(){return S.mode==="single"?activeRole:S.role}
+function canRead(s){return !s.who||s.who===viewer()}
+function signText(s){return t(s.k)}
+function updateSignVis(){for(const s of LV[S.lvl].signs||[])if(s._g)s._g.visible=canRead(s)}
 function segs(str){if(window.Intl&&Intl.Segmenter){return Array.from(new Intl.Segmenter(undefined,{granularity:"grapheme"}).segment(str),x=>x.segment)}return Array.from(str)}
 function wrap(ctx,text,maxW){const words=text.split(" "),lines=[];let cur="";
  const push=w=>{if(ctx.measureText(w).width<=maxW)return w;let part="";for(const g of segs(w)){if(ctx.measureText(part+g).width>maxW){lines.push(part);part=g}else part+=g}return part};
@@ -338,7 +340,7 @@ function buildLevel(){
   for(const sx of[-.75,.75]){const post=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.9,8),mat(0x6e4a24));post.position.set(sx,.95,0);g.add(post)}
   const tex=drawSign(s);const board=new THREE.Mesh(new THREE.PlaneGeometry(1.9,1.31),new THREE.MeshBasicMaterial({map:tex}));board.position.set(0,1.55,.04);g.add(board);
   const back=new THREE.Mesh(new THREE.BoxGeometry(1.96,1.37,.06),mat(0x6e4a24));back.position.set(0,1.55,0);g.add(back);
-  g.position.set(s.x,gy,s.z);if(s.ry)g.rotation.y=s.ry;L.add(g)}
+  g.position.set(s.x,gy,s.z);if(s.ry)g.rotation.y=s.ry;L.add(g);s._g=g;g.visible=canRead(s)}
  // stars
  const sg=starGeo(),sm=mat(0xffd34d,{emissive:0xffb020,emissiveIntensity:.9,metalness:.3,roughness:.4});
  (d.stars||[]).forEach((s,i)=>{const m=new THREE.Mesh(sg,sm);m.position.set(s[0],s[1],s[2]);m.visible=!RT.stars[i];L.add(m);G.stars[i]=m});
@@ -555,7 +557,7 @@ function uiTick(){
  const C=controlled(),Cp=C.pos;let txt=null,key=null;
  const q=nearQuiz(C);
  if(q){key="q"+q.id+LANG;txt=q.who&&q.who!==C.role?t("onlyAnswer")(roleName(q.who)):t("tapAnswer")}
- else{let best=1e9;for(const s of LV[S.lvl].signs||[]){const d=Math.hypot(Cp.x-s.x,Cp.z-s.z);if(d<s.r&&d<best){best=d;key=s.k+LANG+S.role;txt=signText(s)}}}
+ else{let best=1e9;for(const s of LV[S.lvl].signs||[]){const d=Math.hypot(Cp.x-s.x,Cp.z-s.z);if(canRead(s)&&d<s.r&&d<best){best=d;key=s.k+LANG+viewer();txt=signText(s)}}}
  const hint=document.getElementById("hint");if(txt){if(lastHint!==key){hint.querySelector("span").textContent=txt;lastHint=key}hint.classList.remove("off")}else hint.classList.add("off");
  const [ic,lb]=grabLabel(C);const gb=document.getElementById("grabbtn");const html=`<span>${ic}</span><small>${lb}</small>`;if(gb._h!==html){gb.innerHTML=html;gb._h=html}}
 function levelDone(){S.advancing=true;closeQuiz();const ban=document.getElementById("ban");const d=LV[S.lvl];
@@ -647,7 +649,7 @@ function buildMenu(){const m=document.getElementById("menu");
  m.querySelector("#mRestart").onclick=()=>{loadLevel(S.lvl);toggleMenu(false)};
  m.querySelector("#mLeave").onclick=()=>{toggleMenu(false);netStop();lobby()}}
 function toggleMenu(force){const m=document.getElementById("menu");m.hidden=typeof force==="boolean"?!force:!m.hidden}
-function swapChar(){activeRole=otherRole(activeRole);G.camT=null;hudStatus();lastHint=null}
+function swapChar(){activeRole=otherRole(activeRole);G.camT=null;hudStatus();lastHint=null;updateSignVis()}
 function showEnd(){
  document.body.classList.remove("playing");stage.hidden=true;app.hidden=false;
  const mins=S.start?Math.max(1,Math.round((Date.now()-S.start)/60000)):null;
